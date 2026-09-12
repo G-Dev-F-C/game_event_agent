@@ -144,18 +144,46 @@ def fetch_url(url: str) -> str:
 
 
 def extract_events(search_results: list[dict], max_fetch: int = 12) -> list[dict]:
-    """검색 결과 → fetch → Gemini 추출 → 병합/정규화."""
+    """검색 결과 → fetch → Gemini 추출 → 병합/정규화. itch.io는 이미 구조화되어 Gemini 스킵."""
     if not search_results:
         return []
 
-    # fetch 대상 선정: Tavily content가 짧으면 fetch, 충분하면 바로 Gemini에 전달
+    # itch.io 단일 모드: 이미 구조화된 event가 있으면 Gemini 없이 바로 반환
+    if search_results and search_results[0].get("event"):
+        structured = []
+        for r in search_results:
+            ev = r.get("event")
+            if not ev:
+                continue
+            # 방어: 필수 필드 보정
+            ev.setdefault("source", "itch.io")
+            ev.setdefault("location", "온라인")
+            ev.setdefault("category", "jam")
+            ev.setdefault("status", "upcoming")
+            # deadline 동기화
+            if not ev.get("deadline") and ev.get("application_end"):
+                ev["deadline"] = ev["application_end"]
+            if not ev.get("application_end") and ev.get("deadline"):
+                ev["application_end"] = ev["deadline"]
+            structured.append(ev)
+        logger.info(f"Extracted {len(structured)} itch.io structured events (no Gemini)")
+        # dedup
+        seen = set()
+        deduped = []
+        for ev in structured:
+            key = (ev.get("title", "").strip().lower(), ev.get("url", "").strip())
+            if key not in seen:
+                seen.add(key)
+                deduped.append(ev)
+        return deduped
+
+    # 기존 크롤링 경로: fetch → Gemini
     texts: list[str] = []
     fetch_count = 0
     for r in search_results:
         content = r.get("content", "")
         url = r.get("url", "")
         title = r.get("title", "")
-        # content가 500자 이상이면 fetch 생략 가능 (토큰 절약)
         if len(content) >= 500 or not url or fetch_count >= max_fetch:
             texts.append(f"Title: {title}\nURL: {url}\nContent: {content}")
         else:

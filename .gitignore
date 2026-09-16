@@ -1,5 +1,6 @@
 .env
 service_account.json
+game-event-agent-*.json
 __pycache__/
 *.pyc
 *.pyo

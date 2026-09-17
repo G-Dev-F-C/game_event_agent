@@ -2,7 +2,7 @@
 import logging
 import re
 from datetime import datetime
-from urllib.parse import urlparse, urljoin, urldefrag
+from urllib.parse import urlparse, urljoin, urldefrag, parse_qs, urlencode, urlunparse
 from dateutil.relativedelta import relativedelta
 import httpx
 from bs4 import BeautifulSoup
@@ -34,6 +34,31 @@ SOURCE_PAGES = {
 def window_end(today):
     """180일이 아닌 달력 기준 6개월. 말일은 해당 월의 마지막 날로 보정."""
     return today + relativedelta(months=6)
+
+
+def canonical_page(url):
+    """같은 기사의 게임 스킨/모바일 주소 및 단순 페이지 앵커를 합친다."""
+    parsed = urlparse(urldefrag(url)[0])
+    params = parse_qs(parsed.query)
+    host = (parsed.hostname or "").lower()
+    if (host == "inven.co.kr" or host.endswith(".inven.co.kr")) and (
+        parsed.path.rstrip("/") == "/webzine/news" or parsed.path == "/webzine/wznews.php"
+    ):
+        article = params.get("news") or params.get("idx")
+        if article:
+            return "https://www.inven.co.kr/webzine/news/?" + urlencode({"news": article[0]})
+    return urlunparse((parsed.scheme, parsed.netloc, parsed.path or "/", parsed.params, parsed.query, ""))
+
+
+def is_schedule_page(url, today):
+    """행사 자체가 아닌 과거 회차/연사 소개/게임 커뮤니티를 제외한다."""
+    parsed = urlparse(url)
+    if re.search(r"speaker|presenter|/sessions?/|/community/|last_(?:conf_)?list", parsed.path, re.I):
+        return False
+    if "speaker" in parsed.query.lower():
+        return False
+    editions = re.findall(r"(?:NDC|IGC|/)(20\d{2})(?=/|$|&)", parsed.path + "?" + parsed.query, re.I)
+    return not editions or max(map(int, editions)) >= today.year
 
 
 def fetch_official_page(url, domains):
@@ -134,6 +159,7 @@ def fetch_conferences(queries: list[str] | None = None) -> list[dict]:
     seen_events = set()
     for source, domains, keywords in CONFERENCE_SOURCES:
         pending = [(url, 0) for url in SOURCE_PAGES[source]]
+        seed_pages = {canonical_page(url) for url in SOURCE_PAGES[source]}
         # 연도를 한 쿼리에 묶지 않고 검색해 연말/연초 공지 누락을 줄인다.
         for year in range(today.year, until.year + 1):
             for term in (keywords, f"{source} 컨퍼런스 행사 일정 신청"):
@@ -146,8 +172,12 @@ def fetch_conferences(queries: list[str] | None = None) -> list[dict]:
                 except Exception:
                     logger.exception("Conference search failed: %s", source)
         fetched = failures = accepted = 0
+        seen_texts = set()
         for url, depth in pending:
-            if not allowed_url(url, domains) or url in seen_pages:
+            if not allowed_url(url, domains) or not is_schedule_page(url, today):
+                continue
+            url = canonical_page(url)
+            if url in seen_pages:
                 continue
             seen_pages.add(url)
             try:
@@ -156,10 +186,15 @@ def fetch_conferences(queries: list[str] | None = None) -> list[dict]:
                 fetched += 1
                 if not page:
                     continue
-                if depth == 0:
+                if depth == 0 and url in seed_pages:
                     pending.extend((link, 1) for link in links)
                 if not any(str(year) in page for year in range(today.year, until.year + 1)):
                     continue  # 연도 없는/과거 전용 원문에서 미래 일정을 추측하지 않는다.
+                if not re.search(r"컨퍼런스|콘퍼런스|conference|\bNDC\b|\bNCDP\b|\bIGC\b|지스타|G-CON", page, re.I):
+                    continue
+                if page in seen_texts:
+                    continue
+                seen_texts.add(page)
                 instruction = (
                     f"수집 출처: {source}. 수집 기간: {today.isoformat()} 다음날부터 {until.isoformat()}까지.\n"
                     "아래 원문에서 이 출처가 주최/운영하는 게임 컨퍼런스만 추출하라. "

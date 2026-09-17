@@ -7,9 +7,21 @@ from tools.validator import is_expired, cap_events
 from datetime import datetime
 from tools.search import search_all
 from tools.extractor import extract_events
+from tools.conferences import canonical_page, is_schedule_page
 
 
 class ConferenceTests(unittest.TestCase):
+    def test_discovery_skips_archive_and_duplicate_article_variants(self):
+        first = "https://m.inven.co.kr/webzine/wznews.php?idx=123&iskin=maple"
+        second = "https://www.inven.co.kr/webzine/news?news=123&site=igc"
+        self.assertEqual(canonical_page(first), canonical_page(second))
+        today = date(2026, 9, 17)
+        self.assertFalse(is_schedule_page("https://igc.inven.co.kr/2016/", today))
+        self.assertFalse(is_schedule_page("https://ndcreplay.nexon.com/NDC2019/sessions/x", today))
+        self.assertFalse(is_schedule_page("https://www.gstar.or.kr/conference/conf_speaker_view.do?gsk_idx=1", today))
+        self.assertTrue(is_schedule_page("https://www.gstar.or.kr/conference/conf_info.do?tabKind=gcon_tab", today))
+        self.assertTrue(is_schedule_page("https://igc.inven.co.kr/2026/", today))
+
     def test_future_dates(self):
         today = date(2026, 9, 17)
         base = {"category": "conference", "start_date": "2026-09-18"}

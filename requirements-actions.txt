@@ -1,0 +1,12 @@
+# Batch collector only: omit LangGraph server/deployment gRPC pins.
+langgraph>=1.0,<2
+google-generativeai>=0.8,<0.9
+google-api-python-client>=2.0,<3
+google-auth>=2.0,<3
+httpx>=0.27,<1
+beautifulsoup4>=4.12,<5
+lxml>=5.0,<7
+tavily-python>=0.5,<1
+python-dateutil>=2.8,<3
+python-dotenv>=1.0,<2
+tzdata

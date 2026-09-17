@@ -55,6 +55,23 @@ CRON_SCHEDULE=0 0 * * 1,4 # 월/목
 
 ## 배포 (LangGraph Cloud)
 
+### GitHub Actions (권장 무료 배치 실행)
+
+`.github/workflows/collect-events.yml`이 매주 월요일 09:00 KST에 실행된다.
+GitHub Actions의 **Collect game events → Run workflow**로 수동 실행할 수 있다.
+예약 실행은 지연될 수 있으며, 공개 저장소는 60일간 활동이 없으면 예약이 비활성화될 수 있다.
+
+Repository Secrets: `GEMINI_API_KEY`, `TAVILY_API_KEY`, `GOOGLE_SERVICE_ACCOUNT_JSON`(JSON 전체), `SHEET_ID`.
+Repository Variables(선택): `SHEET_TAB`, `GEMINI_MODEL`, `GEMINI_FALLBACK_MODEL`.
+API 키/서비스 계정 파일은 커밋하지 않는다. 기존 서비스 계정에 대상 시트 편집 권한이 필요하다.
+Linux 표준 runner에서 `requirements-actions.txt`를 설치하고 테스트 후 수집한다.
+Cloud 서버용 gRPC/protobuf 고정 의존성은 배치 환경에서 설치하지 않는다.
+동시 실행을 방지하며 최대 20분, 신규 20건으로 제한한다. 결과는 실행 Summary에서 확인한다.
+컨퍼런스 출처별 실패/누락은 로그로 확인한다. 수집 0건이 모든 출처의 정상 조회를 보장하지 않는다.
+별도 LangGraph Cloud 배포나 `setup_cron.py` 실행은 필요 없다.
+
+### LangGraph Cloud (대안)
+
 ```bash
 # 1. Secrets 업로드 — .env → Secret Manager
 pip install google-cloud-secret-manager python-dotenv

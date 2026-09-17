@@ -214,7 +214,7 @@ def _boost_score(ev: dict) -> float:
     return min(base, 1.5)
 
 def cap_events(events: list[dict], limit: int | None = None) -> tuple[list[dict], list[dict]]:
-    """우선순위 정렬 후 limit(신규 추가 20건) 캡. 초과는 capped_skipped."""
+    """컨퍼런스는 모두 유지하고 기타 행사에만 신규 limit을 적용한다."""
     import os
     if limit is None:
         limit = int(os.getenv("WEEKLY_CAP", "20"))
@@ -225,7 +225,10 @@ def cap_events(events: list[dict], limit: int | None = None) -> tuple[list[dict]
         date_key = d or date.max
         return (date_key, -_boost_score(ev))
     ranked = sorted(events, key=sort_key)
-    keep, skipped = ranked[:limit], ranked[limit:]
+    conferences = [ev for ev in ranked if ev.get("category") == "conference"]
+    others = [ev for ev in ranked if ev.get("category") != "conference"]
+    keep = sorted(conferences + others[:limit], key=sort_key)
+    skipped = others[limit:]
     logger.info(f"Cap: {len(events)} -> keep {len(keep)} (cap {limit}), skipped {len(skipped)}")
     return keep, skipped
 

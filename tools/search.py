@@ -9,7 +9,7 @@ TAVILY_MAX_RESULTS = int(os.getenv("TAVILY_MAX_RESULTS", "5"))
 TAVILY_SEARCH_DEPTH = os.getenv("TAVILY_SEARCH_DEPTH", "basic")  # basic / advanced
 
 
-def _tavily_search(query: str, include_domains: list[str] | None = None) -> list[dict]:
+def _tavily_search(query: str, include_domains: list[str] | None = None, max_results: int | None = None, search_depth: str | None = None) -> list[dict]:
     api_key = os.getenv("TAVILY_API_KEY")
     if not api_key:
         return []
@@ -18,8 +18,8 @@ def _tavily_search(query: str, include_domains: list[str] | None = None) -> list
         client = TavilyClient(api_key=api_key)
         resp = client.search(
             query=query,
-            max_results=TAVILY_MAX_RESULTS,
-            search_depth=TAVILY_SEARCH_DEPTH,
+            max_results=max_results or TAVILY_MAX_RESULTS,
+            search_depth=search_depth or TAVILY_SEARCH_DEPTH,
             include_answer=False,
             **({"include_domains": include_domains} if include_domains else {}),
         )

@@ -151,7 +151,7 @@ def overseas_filter_node(state: State) -> dict:
 
 
 def cap_node(state: State) -> dict:
-    """주간: 신규 20건 캡 / 채팅: cap off (요청한 5건 그대로)."""
+    """주간: 컨퍼런스 전부 + 기타 신규 20건 / 채팅: cap off."""
     mode = state.get("mode", "weekly")
     if mode == "chat":
         logger.info("=== cap_node skipped (chat mode: cap off) ===")
@@ -178,7 +178,7 @@ def cap_node(state: State) -> dict:
         new_events = [e for e in events if hid(e) not in existing]
         already_skipped = [e for e in events if hid(e) in existing]
         keep, capped = cap_events(new_events)
-        msg = f"캡: 신규 {len(new_events)}개 중 {len(keep)}개 유지(주간 20건), {len(capped)}개 초과 제외, 기존 중복 {len(already_skipped)}개"
+        msg = f"캡: 신규 {len(new_events)}개 중 {len(keep)}개 유지(컨퍼런스 전부 + 기타 행사 제한), {len(capped)}개 초과 제외, 기존 중복 {len(already_skipped)}개"
         logger.info(msg)
         return {"valid_events": keep, "capped_skipped": capped, "messages": [msg]}
     except Exception as e:

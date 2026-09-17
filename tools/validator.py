@@ -93,6 +93,10 @@ def is_expired(event: dict, today: date | None = None) -> bool:
     if today is None:
         today = datetime.now(SEOUL).date()
 
+    if event.get("category") == "conference":
+        from .conferences import is_future_conference
+        return not is_future_conference(event, today)
+
     # 0) 2025년 행사는 무조건 제외 (강화)
     if _has_2025(event):
         return True

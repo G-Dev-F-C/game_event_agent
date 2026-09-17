@@ -1,20 +1,15 @@
-"""검색 레이어 — itch.io 단일 (Tavily 제거, 향후 확장용 폴백만 유지)."""
+"""itch.io 게임잼 + 고정 공식 출처 게임 컨퍼런스 수집."""
 import os
-import time
-import random
 import logging
 
 logger = logging.getLogger(__name__)
-
-# itch.io 단일 — Tavily 16쿼리는 제거, 필요 시 폴백으로만 사용
-DEFAULT_QUERIES = []  # 사용 안 함 — itch.io 직접 호출
 
 # Tavily 무료: 1,000회/월
 TAVILY_MAX_RESULTS = int(os.getenv("TAVILY_MAX_RESULTS", "5"))
 TAVILY_SEARCH_DEPTH = os.getenv("TAVILY_SEARCH_DEPTH", "basic")  # basic / advanced
 
 
-def _tavily_search(query: str) -> list[dict]:
+def _tavily_search(query: str, include_domains: list[str] | None = None) -> list[dict]:
     api_key = os.getenv("TAVILY_API_KEY")
     if not api_key:
         return []
@@ -26,6 +21,7 @@ def _tavily_search(query: str) -> list[dict]:
             max_results=TAVILY_MAX_RESULTS,
             search_depth=TAVILY_SEARCH_DEPTH,
             include_answer=False,
+            **({"include_domains": include_domains} if include_domains else {}),
         )
         results = []
         for r in resp.get("results", []):
@@ -49,7 +45,7 @@ def _gemini_grounding_search(query: str) -> list[dict]:
     return []
 
 
-def search_all(queries: list[str] | None = None) -> list[dict]:
+def _search_jams(queries: list[str] | None = None) -> list[dict]:
     """itch.io 단일 — 미래 접수 + 온라인/한국만. 채팅에서는 queries로 추가 필터."""
     try:
         from tools.itchio import fetch_itchio_jams, filter_future_online
@@ -89,3 +85,19 @@ def search_all(queries: list[str] | None = None) -> list[dict]:
     except Exception as e:
         logger.error(f"itch.io search failed: {e}")
         return []
+
+
+def search_all(queries: list[str] | None = None) -> list[dict]:
+    """한 출처가 실패해도 나머지 출처의 수집 결과는 유지한다."""
+    results = list(_search_jams(queries))
+    try:
+        from .conferences import fetch_conferences
+        for event in fetch_conferences(queries):
+            results.append({
+                "title": event["title"], "url": event["url"],
+                "source": event["source"], "content": event.get("description", ""),
+                "event": event,
+            })
+    except Exception:
+        logger.exception("Conference collection failed")
+    return results

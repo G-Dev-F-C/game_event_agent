@@ -54,7 +54,7 @@ class State(TypedDict, total=False):
 # ── Nodes ──
 
 def search_node(state: State) -> dict:
-    """주간: 16쿼리 / 채팅: 질문 기반 2~3쿼리 확장."""
+    """itch.io 게임잼 + 공식 출처 6곳의 컨퍼런스 수집."""
     from tools.search import search_all
     mode = state.get("mode", "weekly")
     logger.info(f"=== search_node start (mode={mode}) ===")

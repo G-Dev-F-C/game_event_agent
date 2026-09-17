@@ -1,14 +1,24 @@
 # Event Collector — 게임 외부행사 자동 수집
 
-매주 월요일 09:00 KST에 한국+글로벌 게임잼/컨퍼런스/공모전/대회를 수집해 Google Sheets + Calendar에 저장.
-해외 행사는 온라인만, 국내 행사는 온/오프라인 모두 저장하며 마감/종료된 행사는 자동 제외.
+매주 월요일 09:00 KST에 itch.io 게임잼과 지정된 공식 출처의 게임 컨퍼런스를 수집해 Google Sheets에 저장.
+캘린더에는 사용자가 선택한 행사만 수동 추가한다.
+
+## 고정 수집 출처와 날짜 기준
+- 게임잼: 기존 itch.io 수집 및 미래 접수/온라인·국내 필터 유지.
+- 컨퍼런스: 넥슨(`nexon.com`), 스마일게이트(`smilegate.com`), NC소프트(`ncsoft.com`), 크래프톤(`krafton.com`), 인벤 게임 컨퍼런스 IGC(`inven.co.kr`), 지스타 G-CON(`gstar.or.kr`). 각 도메인의 하위 도메인 포함.
+- Tavily로 출처별 검색 1회(총 6회), 공식 원문을 가져와 Gemini로 추출한다. 외부 도메인 검색 결과는 제외한다.
+- 컨퍼런스는 한국 시간 기준 `start_date > 오늘`만 포함한다. 오늘 시작/진행중/과거/취소/날짜 미정 행사는 제외한다. 접수 마감만 지났고 본행사가 미래인 경우는 유지한다.
+- 기사 게시일이나 접수일을 행사 시작일로 추정하지 않는다. 타사 행사 참가 기사, IR 컨퍼런스콜, 일반 게임 이벤트는 추출 대상이 아니다.
+- `TAVILY_API_KEY`, `GEMINI_API_KEY`가 컨퍼런스 수집에 필요하다. 키 누락이나 출처 실패 시 컨퍼런스 결과가 없을 수 있으며 게임잼 수집은 계속한다.
+- 로컬 검증: `python -m unittest discover -s tests -v` (외부 API/시트 쓰기 없이 실행).
 
 ## 구조
 ```
 agent.py              # 7노드 LangGraph (search → extract → validate → overseas_filter → dedup → sheets → calendar)
 tools/
   gemini.py           # Gemini 3.5-flash-lite rate limiter (4초 간격, 429 지수백오프, fallback flash-lite-latest)
-  search.py           # Tavily 8쿼리 (KO 4 + EN 4)
+  search.py           # itch.io 게임잼 + 컨퍼런스 결과 병합
+  conferences.py      # 공식 출처 6곳 한정 검색/추출 + 미래 시작일 필터
   extractor.py        # httpx+BS4 fetch → Gemini JSON 추출 (배치 4개씩)
   validator.py        # 마감/종료 필터 + 해외 오프라인 필터 (국내 키워드/.kr/온라인 포함 시 유지)
   sheets.py           # Service Account, events 탭 자동 생성 + hash dedup + batchUpdate
@@ -20,7 +30,7 @@ setup_cron.py         # Cron 등록 (CRON_SCHEDULE env로 변경)
 ## 빠른 시작
 1. `cp .env.example .env` 후 채우기:
    - `GEMINI_API_KEY` (모델: `gemini-3.5-flash-lite`, fallback `gemini-flash-lite-latest` — 2.5는 신규 사용자 404)
-   - `TAVILY_API_KEY` (`tvly-...`, 검색 8쿼리)
+   - `TAVILY_API_KEY` (`tvly-...`, 컨퍼런스 출처별 총 6쿼리)
    - `GOOGLE_SERVICE_ACCOUNT_FILE=game-event-agent-xxx.json` 또는 `GOOGLE_SERVICE_ACCOUNT_JSON`
    - `SHEET_ID` (예: `1dL2n...`), `CALENDAR_ID` (그룹 캘린더 `...@group.calendar.google.com` 또는 `primary`)
 2. Google Cloud: Service Account 생성 → Sheets/Calendar/Drive API 활성화 → 해당 시트/캘린더에 `...@...iam.gserviceaccount.com` 편집자 공유 (그룹 캘린더는 SA가 자동 `calendarList.insert`로 등록)
@@ -39,7 +49,7 @@ CRON_SCHEDULE=0 0 * * 1,4 # 월/목
 후 `python setup_cron.py` 재실행 또는 Platform API로 update.
 
 ## 동작 규칙
-- **마감 필터:** `deadline/end_date < today(Asia/Seoul)` 또는 Gemini `status=closed/cancelled`면 제외
+- **컨퍼런스 날짜 필터:** `start_date > today(Asia/Seoul)` 필수. 날짜 미정/진행중/종료/취소 제외, 접수 마감은 별도.
 - **해외 필터:** `location`에 `온라인` 포함 → 유지, `오프라인: 해외(미국/일본 등)` + 국내 키워드/`.kr` 없음 → 제외, 빈 location/혼합(오프라인+온라인)은 유지
 - **중복:** `sha1(title+start_date+url)` 해시로 Sheets A열/Calendar eventId dedup
 

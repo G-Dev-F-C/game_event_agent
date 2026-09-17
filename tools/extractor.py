@@ -144,11 +144,11 @@ def fetch_url(url: str) -> str:
 
 
 def extract_events(search_results: list[dict], max_fetch: int = 12) -> list[dict]:
-    """검색 결과 → fetch → Gemini 추출 → 병합/정규화. itch.io는 이미 구조화되어 Gemini 스킵."""
+    """검색 결과 병합/정규화. 수집 단계에서 구조화한 행사는 Gemini 재호출 생략."""
     if not search_results:
         return []
 
-    # itch.io 단일 모드: 이미 구조화된 event가 있으면 Gemini 없이 바로 반환
+    # 게임잼/공식 컨퍼런스는 수집 단계에서 이미 구조화되어 있다.
     if search_results and search_results[0].get("event"):
         structured = []
         for r in search_results:
@@ -156,8 +156,8 @@ def extract_events(search_results: list[dict], max_fetch: int = 12) -> list[dict
             if not ev:
                 continue
             # 방어: 필수 필드 보정
-            ev.setdefault("source", "itch.io")
-            ev.setdefault("location", "온라인")
+            ev.setdefault("source", r.get("source", "itch.io"))
+            ev.setdefault("location", "온라인" if ev.get("category", "jam") == "jam" else "")
             ev.setdefault("category", "jam")
             ev.setdefault("status", "upcoming")
             # deadline 동기화
@@ -166,7 +166,7 @@ def extract_events(search_results: list[dict], max_fetch: int = 12) -> list[dict
             if not ev.get("application_end") and ev.get("deadline"):
                 ev["application_end"] = ev["deadline"]
             structured.append(ev)
-        logger.info(f"Extracted {len(structured)} itch.io structured events (no Gemini)")
+        logger.info(f"Extracted {len(structured)} structured events (no additional Gemini)")
         # dedup
         seen = set()
         deduped = []

@@ -220,6 +220,10 @@ def fetch_conferences(queries: list[str] | None = None) -> list[dict]:
                         is_gcon = bool(re.search(r"g[ -]?con|컨퍼런스|콘퍼런스", event["title"], re.I))
                         event["title"] = f"지스타{' G-CON' if is_gcon else ''} {_parse_date(event['start_date']).year}"
                     key = (source, re.sub(r"\W", "", event["title"].lower()), event["start_date"])
+                    if source == "지스타":
+                        # 대표 페이지를 먼저 처리하므로 보조 일정표의 게임대상 날짜 등이
+                        # 본행사/G-CON의 다른 시작일로 추출되어도 별도 행사로 추가하지 않는다.
+                        key = key[:2]
                     if key in seen_events:
                         continue
                     seen_events.add(key)

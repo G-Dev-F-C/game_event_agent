@@ -11,6 +11,30 @@ from tools.conferences import canonical_page, is_schedule_page
 
 
 class ConferenceTests(unittest.TestCase):
+    @patch("tools.conferences.CONFERENCE_SOURCES", (("지스타", ("gstar.or.kr",), "지스타"),))
+    @patch("tools.search._tavily_search", return_value=[{"url": "https://www.gstar.or.kr/eng/gstar/gstar_info.do"}])
+    @patch("tools.conferences.fetch_official_page")
+    @patch("tools.gemini.generate_json")
+    @patch("tools.conferences.datetime")
+    def test_gstar_authoritative_dates_override_conflicting_overview(self, clock, generate, fetch, search):
+        clock.now.return_value.date.return_value = date(2026, 9, 17)
+        clock.side_effect = datetime
+        def page(url, domains):
+            if url == "https://www.gstar.or.kr/":
+                return "지스타 2026 - 2026년 11월 19일~22일, 부산 벡스코", []
+            if "conf_info" in url:
+                return "G-CON 2026 2026. 11 .19(Thu) - 20(Fri) Convention Hall, Bexco", []
+            return "G-STAR conference 2026 event overview", []
+        fetch.side_effect = page
+        generate.return_value = [
+            {"title": name, "category": "conference", "start_date": "2026-11-18", "end_date": "2026-11-22"}
+            for name in ("G-STAR 2026", "G-CON 2026")
+        ]
+        events = fetch_conferences()
+        self.assertEqual(len(events), 2)
+        self.assertTrue(all(e["start_date"] == "2026-11-19" for e in events))
+        self.assertEqual([e["end_date"] for e in events], ["2026-11-22", "2026-11-20"])
+
     def test_discovery_skips_archive_and_duplicate_article_variants(self):
         first = "https://m.inven.co.kr/webzine/wznews.php?idx=123&iskin=maple"
         second = "https://www.inven.co.kr/webzine/news?news=123&site=igc"

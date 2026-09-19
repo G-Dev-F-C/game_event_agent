@@ -5,10 +5,69 @@
 매주 월요일 09:00 KST에 itch.io 게임잼과 지정된 공식 출처의 게임 전시회·컨퍼런스를 수집해 Google Sheets에 저장.
 캘린더에는 사용자가 선택한 행사만 수동 추가한다.
 
-## 고정 수집 출처와 날짜 기준
-- 게임잼: 기존 itch.io 수집 및 미래 접수/온라인·국내 필터 유지.
-- 컨퍼런스: 넥슨(`nexon.com`), 스마일게이트(`smilegate.com`), NC소프트(`ncsoft.com`), 크래프톤(`krafton.com`), 인벤 게임 컨퍼런스 IGC(`inven.co.kr`), 지스타 본행사 및 G-CON(`gstar.or.kr`). 각 도메인의 하위 도메인 포함. 지스타 전시회와 G-CON은 별도 행사로 저장한다.
-- 추가 축제: 부산인디커넥트페스티벌, 플레이엑스포, 버닝비버/비버롹스, 인디크래프트, AGF, GXG. 공식 출처와 카테고리는 아래 표를 따른다.
+## 수집 출처
+
+현재 게임잼 출처 1개와 전시회·컨퍼런스 공식 출처 12개 그룹을 조회한다. 공식 도메인의 하위 도메인도 포함한다.
+
+| 출처 / 행사 | 공식 사이트·허용 도메인 | 수집 카테고리 |
+| --- | --- | --- |
+| itch.io | [itch.io/jams](https://itch.io/jams) | 게임잼 |
+| 넥슨 | [NDC](https://ndc.nexon.com/) · `nexon.com` | 컨퍼런스 |
+| 스마일게이트 | [공식 뉴스룸](https://newsroom.smilegate.com/) · `smilegate.com` | 컨퍼런스 |
+| NC소프트 | [공식 뉴스](https://about.ncsoft.com/news) · `ncsoft.com` | 컨퍼런스 |
+| 크래프톤 | [보도자료](https://www.krafton.com/news/press/), [공식 블로그](https://blog.krafton.com/) · `krafton.com` | 컨퍼런스 |
+| 인벤 게임 컨퍼런스(IGC) | [IGC](https://igc.inven.co.kr/) · `inven.co.kr` | 컨퍼런스 |
+| 지스타 / G-CON | [지스타](https://www.gstar.or.kr/) · `gstar.or.kr` | 지스타 본행사: 전시회 / G-CON: 컨퍼런스 |
+| 부산인디커넥트페스티벌(BIC) | [행사 안내](https://www.bicfest.org/overview) · `bicfest.org` | 본행사: 전시회 / 별도 컨퍼런스: 컨퍼런스 |
+| 플레이엑스포(PlayX4) | [공식 사이트](https://www.playx4.or.kr/) · `playx4.or.kr` | 본행사: 전시회 / 별도 컨퍼런스: 컨퍼런스 |
+| 버닝비버 / 비버롹스(BEAVER ROCKS) | [비버롹스](https://beaverrocks.com/) · `beaverrocks.com`, `burningbeaver.com`, `smilegate.com` | 본행사: 전시회 / 별도 컨퍼런스: 컨퍼런스 |
+| 인디크래프트(INDIECRAFT) | [공식 사이트](https://indiecraft.or.kr/) · `indiecraft.or.kr`, 공동 행사 `gxg.world` | 본행사: 전시회 / 별도 컨퍼런스: 컨퍼런스 |
+| AGF(Anime X Game Festival) | [행사 안내](https://www.agfkorea.com/event?idx=1) · `agfkorea.com` | 본행사: 전시회 / 별도 컨퍼런스: 컨퍼런스 |
+| GXG | [행사 안내](https://gxg.world/about) · `gxg.world` | 본행사: 전시회 / 별도 컨퍼런스: 컨퍼런스 |
+
+## 에이전트 실행 시각 및 주기
+
+| 항목 | 현재 설정 |
+| --- | --- |
+| 실행 환경 | GitHub Actions · `Collect game events` 워크플로 |
+| 자동 실행 주기 | **주 1회, 매주 월요일** |
+| 자동 실행 시각 | **오전 09:00 한국 시간(KST)** = 월요일 00:00 UTC |
+| 예약 표현식 | `0 0 * * 1` (UTC 기준) |
+| 수동 실행 | Actions → Collect game events → Run workflow → `main` 선택 |
+| 코드 반영 시점 | `main`에 푸시한 뒤 다음 예약 또는 수동 실행부터 적용. 푸시만으로는 수집하지 않음 |
+| 실행 방식 / 제한 | 수집 후 종료하는 배치 · 실행당 최대 20분 · 동시 실행 직렬화 |
+| 저장 위치 | Google Sheets의 `events` 탭(기본값) |
+| 설정 파일 | [.github/workflows/collect-events.yml](.github/workflows/collect-events.yml) |
+
+예약 시각은 GitHub Actions 사정에 따라 지연될 수 있다. 실행 결과는 [Actions 실행 목록](https://github.com/G-Dev-F-C/game_event_agent/actions/workflows/collect-events.yml)에서 확인한다.
+
+## 카테고리 및 수집 기준
+
+현재 고정 출처에서 수집하는 주요 카테고리는 다음 세 가지다. 시트에는 영문 `category` 값을 저장한다.
+
+| 카테고리 | 저장 값 | 분류 기준 / 예시 | 날짜·건수 기준 |
+| --- | --- | --- | --- |
+| 게임잼 | `jam` | itch.io의 게임 제작 행사 | 기존 미래 접수·온라인/국내 필터 적용. 기타 행사와 합산해 신규 최대 20건 |
+| 전시회 | `exhibition` | 게임 전시·체험 중심 본행사: 지스타, BIC, PlayX4, 비버롹스, 인디크래프트, AGF, GXG | 오늘 이후부터 달력 기준 6개월 이내 시작. 조건에 맞게 발견한 신규 행사 건수 제한 없음 |
+| 컨퍼런스 | `conference` | 강연·세미나 중심 행사: NDC, IGC, G-CON, 별도로 공지된 축제 컨퍼런스 | 오늘 이후부터 달력 기준 6개월 이내 시작. 조건에 맞게 발견한 신규 행사 건수 제한 없음 |
+
+전시회에 강연이 포함되어 있다는 이유만으로 본행사를 컨퍼런스로 분류하지 않는다. 별도로 이름과 일정이 공지된 컨퍼런스는 별도 행사로 저장한다.
+인디크래프트의 공모전 접수·심사·시상식 날짜를 전시회 날짜로 대신 쓰지 않는다. 버닝비버의 변경된 행사명 비버롹스도 검색한다.
+이미 끝난 올해 행사나 일정 미정인 다음 회차는 저장하지 않으며, 매주 새 공식 공지를 다시 확인한다.
+
+추출 스키마는 아래 카테고리도 지원하지만, 현재 이들을 위한 별도 고정 수집 출처는 없다.
+
+| 카테고리 | 저장 값 |
+| --- | --- |
+| 공모전 | `contest` |
+| 대회 | `competition` |
+| 해커톤 | `hackathon` |
+| 쇼케이스 | `showcase` |
+| 데모데이 | `demo_day` |
+| 기타 관련 행사 | `other` |
+
+### 검색 및 날짜 판정 상세
+
 - 공식 대표 페이지를 직접 조회하고 행사 관련 링크를 한 단계 더 따라간다. Tavily는 수집 기간에 걸친 연도별·출처별 2개 쿼리를 각각 advanced 검색(쿼리당 최대 10개 결과)한다. 공식 도메인 이외의 결과와 리다이렉트는 제외한다.
 - 이미지 배너의 대체 텍스트도 읽는다. 지스타/G-CON의 명시적 날짜는 직접 파싱하고 그 외 원문은 Gemini로 구조화한다.
 - 링크 탐색은 공식 대표 페이지에서 한 단계만 수행하며, 검색된 기사에 달린 관련 기사까지 재귀 탐색하지 않는다. 인벤의 모바일/게임 스킨별 중복 기사 주소는 통합하고 과거 회차·연사 소개 페이지는 제외한다.
@@ -17,24 +76,6 @@
 - 기사 게시일이나 접수일을 행사 시작일로 추정하지 않는다. 타사 행사 참가 기사, IR 컨퍼런스콜, 일반 게임 이벤트는 추출 대상이 아니다.
 - `TAVILY_API_KEY`, `GEMINI_API_KEY`가 컨퍼런스 수집에 필요하다. 키 누락이나 출처 실패 시 컨퍼런스 결과가 없을 수 있으며 게임잼 수집은 계속한다.
 - 로컬 검증: `python -m unittest discover -s tests -v` (외부 API/시트 쓰기 없이 실행).
-
-### 전시회 / 컨퍼런스 분류
-
-시트의 `category`에는 `exhibition`(전시회), `conference`(컨퍼런스)를 저장한다.
-
-| 행사 | 공식 출처 | 본행사 분류 |
-| --- | --- | --- |
-| 부산인디커넥트페스티벌(BIC) | [bicfest.org](https://www.bicfest.org/overview) | 전시회 |
-| 플레이엑스포(PlayX4) | [playx4.or.kr](https://www.playx4.or.kr/) | 전시회 |
-| 버닝비버 / 비버롹스(BEAVER ROCKS) | [beaverrocks.com](https://beaverrocks.com/), 기존 burningbeaver.com, smilegate.com 공식 발표 | 전시회 |
-| 인디크래프트(INDIECRAFT) | [indiecraft.or.kr](https://indiecraft.or.kr/), 공동 행사 gxg.world | 전시회 |
-| AGF(Anime X Game Festival) | [agfkorea.com](https://www.agfkorea.com/event?idx=1) | 전시회 |
-| GXG | [gxg.world](https://gxg.world/about) | 전시회(전시·체험 중심 문화축제) |
-| 지스타 본행사 / G-CON | [gstar.or.kr](https://www.gstar.or.kr/) | 본행사 전시회 / G-CON 컨퍼런스 |
-
-별도로 이름과 일정이 공지된 강연·세미나 행사는 `conference`로 나눈다(예: 부산 인디 웨이브 컨퍼런스).
-전시회에 강연이 포함된 것만으로 본행사를 컨퍼런스로 바꾸지 않는다. 인디크래프트의 공모전 접수·심사·시상식 날짜를 전시회 날짜로 대신 쓰지 않는다.
-버닝비버의 변경된 행사명 비버롹스도 검색한다. 이미 끝난 올해 행사나 일정 미정인 다음 회차는 저장하지 않으며, 매주 새 공식 공지를 다시 확인한다.
 
 ## 구조
 ```

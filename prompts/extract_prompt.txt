@@ -6,9 +6,11 @@
 
 ## 추출 규칙
 1. 각 행사는 반드시 아래 JSON 스키마를 따른다.
-2. category는 다음 중 하나: jam, conference, contest, competition, hackathon, showcase, demo_day, other
+2. category는 다음 중 하나: jam, conference, exhibition, contest, competition, hackathon, showcase, demo_day, other
+   - exhibition: 전시·체험 중심 게임쇼/페스티벌 본행사. conference: 별도 일정이 있는 강연·세미나 중심 행사.
+   - 전시회 내 강연이 있다는 이유로 본행사를 conference로 분류하지 않는다.
    - other는 게임 개발 동아리가 참가할 만한 경우만 포함하고, relevance_score >= 0.7 일 때만 유효하다.
-   - 예: 인디게임 쇼케이스, 해커톤(게임 트랙), 데모데이, 게임 전시회 등은 other로 허용
+   - 게임 전시회·체험형 페스티벌은 exhibition으로 분류하고, 다른 명시적 카테고리에 해당하지 않는 관련 행사만 other로 허용한다.
 3. status는 현재 날짜 기준: upcoming(예정), ongoing(진행중), closed(마감/종료), cancelled(취소) 중 하나.
    - 본행사가 종료되었으면 closed, 취소되었으면 cancelled로 분류한다.
    - 접수 마감이 지났어도 본행사가 미래이면 upcoming이다.
@@ -24,7 +26,7 @@
 [
   {
     "title": "행사명 (원어 유지)",
-    "category": "jam|conference|contest|competition|hackathon|showcase|demo_day|other",
+    "category": "jam|conference|exhibition|contest|competition|hackathon|showcase|demo_day|other",
     "start_date": "YYYY-MM-DD or null (행사 시작일)",
     "end_date": "YYYY-MM-DD or null (행사 종료일)",
     "application_start": "YYYY-MM-DD or null (접수 시작일, 없으면 null)",

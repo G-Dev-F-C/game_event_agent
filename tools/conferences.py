@@ -1,4 +1,4 @@
-"""고정된 공식 출처에서 미래 게임 컨퍼런스를 수집한다."""
+"""공식 출처에서 향후 6개월 게임 전시회·컨퍼런스를 수집한다."""
 import logging
 import re
 from datetime import datetime
@@ -19,6 +19,12 @@ CONFERENCE_SOURCES = (
     ("크래프톤", ("krafton.com",), "크래프톤 게임 개발 컨퍼런스"),
     ("인벤 게임 컨퍼런스", ("inven.co.kr",), "인벤 게임 컨퍼런스 IGC"),
     ("지스타", ("gstar.or.kr",), "지스타 G-CON 게임 컨퍼런스"),
+    ("부산인디커넥트페스티벌", ("bicfest.org",), "부산인디커넥트페스티벌 BIC Festival"),
+    ("플레이엑스포", ("playx4.or.kr",), "플레이엑스포 PlayX4"),
+    ("버닝비버", ("beaverrocks.com", "burningbeaver.com", "smilegate.com"), "버닝비버 비버롹스 Burning Beaver BEAVER ROCKS"),
+    ("인디크래프트", ("indiecraft.or.kr", "gxg.world"), "인디크래프트 INDIECRAFT"),
+    ("AGF", ("agfkorea.com",), "AGF Anime X Game Festival"),
+    ("GXG", ("gxg.world",), "GXG 게임문화축제"),
 )
 
 SOURCE_PAGES = {
@@ -28,7 +34,44 @@ SOURCE_PAGES = {
     "크래프톤": ("https://www.krafton.com/news/press/", "https://blog.krafton.com/"),
     "인벤 게임 컨퍼런스": ("https://igc.inven.co.kr/",),
     "지스타": ("https://www.gstar.or.kr/", "https://www.gstar.or.kr/conference/conf_info.do?tabKind=gcon_tab"),
+    "부산인디커넥트페스티벌": ("https://www.bicfest.org/overview",),
+    "플레이엑스포": ("https://www.playx4.or.kr/",),
+    "버닝비버": ("https://beaverrocks.com/",),
+    "인디크래프트": ("https://indiecraft.or.kr/",),
+    "AGF": ("https://www.agfkorea.com/event?idx=1",),
+    "GXG": ("https://gxg.world/about",),
 }
+
+FESTIVAL_ALIASES = {
+    "부산인디커넥트페스티벌": r"부산\s*인디\s*커넥트|\bBIC\b|Busan\s+Indie\s+Connect|부산\s*인디\s*웨이브",
+    "플레이엑스포": r"플레이\s*엑스포|play\s*x4",
+    "버닝비버": r"버닝\s*비버|비버\s*롹스|burning\s*beaver|beaver\s*rocks",
+    "인디크래프트": r"인디\s*크래프트|indie\s*craft",
+    "AGF": r"\bAGF\b|anime\s*[x×]\s*game\s*festival",
+    "GXG": r"\bGXG\b|Game\s+Culture\s*(?:&\s*Arts|[x×]\s*Generation)\s*Festival",
+}
+SCHEDULE_CATEGORIES = ("conference", "exhibition")
+
+
+def classify_event(event, source):
+    """지정 축제 본행사는 전시회, 별도 이름을 가진 강연 행사는 컨퍼런스."""
+    event = dict(event)
+    title = event.get("title") or ""
+    if source in FESTIVAL_ALIASES:
+        if not re.search(FESTIVAL_ALIASES[source], title, re.I):
+            return None  # 같은 공식 사이트에서 언급된 다른 축제는 가져오지 않는다.
+        if re.search(r"시상식|awards?\s*ceremony|출품작\s*모집|공모전|게임잼|game\s*jam", title, re.I):
+            return None
+        event["category"] = "conference" if re.search(r"컨퍼런스|콘퍼런스|conference|세미나|seminar", title, re.I) else "exhibition"
+        start = _parse_date(event.get("start_date"))
+        if event["category"] == "exhibition" and start:
+            name = "비버롹스" if source == "버닝비버" and re.search(r"비버\s*롹스|beaver\s*rocks", title, re.I) else source
+            event["title"] = f"{name} {start.year}"
+    elif source == "지스타":
+        event["category"] = "conference" if re.search(r"g[ -]?con|컨퍼런스|콘퍼런스", title, re.I) else "exhibition"
+    elif event.get("category") != "conference":
+        return None
+    return event
 
 
 def window_end(today):
@@ -88,7 +131,7 @@ def parse_official_html(html, url, domains):
         target = urldefrag(urljoin(url, anchor["href"]))[0]
         label = anchor.get_text(" ", strip=True) + " " + urlparse(target).path
         if allowed_url(target, domains) and re.search(
-            r"컨퍼런스|콘퍼런스|conference|g-con|gcon|ndc|ncdp|igc|전시개요", label, re.I
+            r"컨퍼런스|콘퍼런스|conference|g-con|gcon|ndc|ncdp|igc|전시\s*개요|행사\s*(?:개요|안내|일정)|overview|introduction|/about", label, re.I
         ) and not re.search(r"login|inscr|\.pdf(?:\?|$)", target, re.I):
             if target not in links:
                 links.append(target)
@@ -119,7 +162,7 @@ def parse_gstar_events(text, url):
             continue
         if re.search(r"취소|cancelled|canceled", text, re.I):
             continue
-        events.append({"title": f"{title} {year}", "category": "conference",
+        events.append({"title": f"{title} {year}", "category": "conference" if kind == "G-CON" else "exhibition",
                        "start_date": start_date, "end_date": end_date,
                        "location": location, "url": url, "source": "지스타",
                        "status": "upcoming", "relevance_score": 0.9,
@@ -140,7 +183,7 @@ def is_future_conference(event: dict, today=None) -> bool:
     start = _parse_date(event.get("start_date"))
     end = _parse_date(event.get("end_date"))
     return bool(
-        event.get("category") == "conference"
+        event.get("category") in SCHEDULE_CATEGORIES
         and start and today < start <= window_end(today)
         and (not end or end >= start)
         and (event.get("status") or "").lower() not in
@@ -148,21 +191,22 @@ def is_future_conference(event: dict, today=None) -> bool:
     )
 
 
-def fetch_conferences(queries: list[str] | None = None) -> list[dict]:
+def fetch_conferences(queries: list[str] | None = None, sources=None) -> list[dict]:
     from .search import _tavily_search
     from .gemini import generate_json
 
     today = datetime.now(SEOUL).date()
     until = window_end(today)
     collected = []
-    seen_pages = set()
     seen_events = set()
-    for source, domains, keywords in CONFERENCE_SOURCES:
+    for source, domains, keywords in (CONFERENCE_SOURCES if sources is None else sources):
+        seen_pages = set()  # 공동 주최 사이트라도 출처별 추출 범위는 다르다.
         pending = [(url, 0) for url in SOURCE_PAGES[source]]
         seed_pages = {canonical_page(url) for url in SOURCE_PAGES[source]}
         # 연도를 한 쿼리에 묶지 않고 검색해 연말/연초 공지 누락을 줄인다.
         for year in range(today.year, until.year + 1):
-            for term in (keywords, f"{source} 컨퍼런스 행사 일정 신청"):
+            event_type = "전시회 페스티벌" if source in FESTIVAL_ALIASES else "컨퍼런스"
+            for term in (keywords, f"{source} {event_type} 행사 일정 신청"):
                 query = f"{term} {year}"
                 if queries:
                     query += " " + " ".join(queries[:3])
@@ -190,18 +234,24 @@ def fetch_conferences(queries: list[str] | None = None) -> list[dict]:
                     pending.extend((link, 1) for link in links)
                 if not any(str(year) in page for year in range(today.year, until.year + 1)):
                     continue  # 연도 없는/과거 전용 원문에서 미래 일정을 추측하지 않는다.
-                if not re.search(r"컨퍼런스|콘퍼런스|conference|\bNDC\b|\bNCDP\b|\bIGC\b|지스타|G-CON", page, re.I):
+                relevant = FESTIVAL_ALIASES.get(source, r"컨퍼런스|콘퍼런스|conference|\bNDC\b|\bNCDP\b|\bIGC\b|지스타|G-CON")
+                if not re.search(relevant, page, re.I):
                     continue
                 if page in seen_texts:
                     continue
                 seen_texts.add(page)
                 instruction = (
                     f"수집 출처: {source}. 수집 기간: {today.isoformat()} 다음날부터 {until.isoformat()}까지.\n"
-                    "아래 원문에서 이 출처가 주최/운영하는 게임 컨퍼런스만 추출하라. "
+                    "아래 원문에서 지정 출처의 게임 전시회/컨퍼런스 일정만 추출하라. "
+                    "기업 출처(넥슨/스마일게이트/NC소프트/크래프톤)는 주최 컨퍼런스만, "
+                    "이름이 지정된 축제 출처는 그 축제 본행사와 별도 공지된 컨퍼런스만 포함한다. "
+                    "버닝비버의 변경된 행사명 비버롹스(BEAVER ROCKS)도 포함한다. "
                     "인벤은 IGC, 지스타는 지스타 본행사(국제게임전시회)와 G-CON을 별개 행사로 포함한다. "
                     "다른 주최 행사에 대한 기사, 단순 참가/후원, 실적발표/IR 컨퍼런스콜, "
-                    "게임 출시/인게임 이벤트, 교육과정은 제외한다. 세션/연사별로 행사를 나누지 마라. "
-                    "반드시 category=conference. 원문에 연도와 본행사 시작일이 명시된 "
+                    "게임 출시/인게임 이벤트, 교육과정, 공모전 접수/심사/시상식만의 일정은 제외한다. 세션/연사별로 행사를 나누지 마라. 연속된 여러 날의 본행사는 시작일~종료일 한 건으로 묶어라. "
+                    "본행사 전시/체험/문화축제는 category=exhibition, 별도 강연 컨퍼런스는 category=conference. "
+                    "단지 축제 안에 강연이 있다는 이유로 본행사를 conference로 분류하지 마라. "
+                    "원문에 연도와 본행사 시작일이 명시된 "
                     "미래 행사만 포함한다. 연도를 현재 연도로 바꾸거나 접수일/기사일을 "
                     "행사일로 추정하지 마라. 날짜 미정, 과거/진행중/취소 행사는 빈 배열. "
                     "접수 마감만 지났더라도 본행사가 미래면 status=upcoming.\n\n"
@@ -209,7 +259,10 @@ def fetch_conferences(queries: list[str] | None = None) -> list[dict]:
                 parsed = parse_gstar_events(page, url) if source == "지스타" else []
                 extracted = parsed or generate_json(instruction + f"공식 URL: {url}\n" + page)
                 for event in extracted:
-                    if not isinstance(event, dict) or not is_future_conference(event, today):
+                    if not isinstance(event, dict):
+                        continue
+                    event = classify_event(event, source)
+                    if not event or not is_future_conference(event, today):
                         continue
                     if not event.get("title"):
                         continue

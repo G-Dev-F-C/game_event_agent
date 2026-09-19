@@ -8,9 +8,34 @@ from datetime import datetime
 from tools.search import search_all
 from tools.extractor import extract_events
 from tools.conferences import canonical_page, is_schedule_page
+from tools.conferences import classify_event, FESTIVAL_ALIASES
 
 
 class ConferenceTests(unittest.TestCase):
+    def test_festival_categories_and_scope(self):
+        for source in FESTIVAL_ALIASES:
+            with self.subTest(source=source):
+                event = classify_event({"title": source + " 2026", "category": "conference"}, source)
+                self.assertEqual(event["category"], "exhibition")
+        self.assertEqual(classify_event({"title": "BEAVER ROCKS 2026"}, "버닝비버")["category"], "exhibition")
+        self.assertEqual(classify_event({"title": "부산 인디 웨이브 컨퍼런스 2026"}, "부산인디커넥트페스티벌")["category"], "conference")
+        self.assertIsNone(classify_event({"title": "GXG 2026"}, "인디크래프트"))
+        self.assertIsNone(classify_event({"title": "인디크래프트 2026 시상식"}, "인디크래프트"))
+        self.assertEqual(classify_event({"title": "지스타 2026"}, "지스타")["category"], "exhibition")
+        self.assertEqual(classify_event({"title": "G-CON 2026"}, "지스타")["category"], "conference")
+        for title in ("Anime X Game Festival 2026", "AGF 2026"):
+            self.assertEqual(classify_event({"title": title, "start_date": "2026-12-04"}, "AGF")["title"], "AGF 2026")
+
+    def test_exhibitions_use_six_month_window_and_no_cap(self):
+        base = {"title": "AGF 2026", "category": "exhibition", "start_date": "2026-12-04"}
+        today = date(2026, 9, 19)
+        self.assertFalse(is_expired(base, today))
+        for start in (None, "2026-08-14", "2027-03-20"):
+            self.assertTrue(is_expired({**base, "start_date": start}, today))
+        keep, skipped = cap_events([base] * 25, limit=0)
+        self.assertEqual(len(keep), 25)
+        self.assertEqual(skipped, [])
+
     @patch("tools.conferences.CONFERENCE_SOURCES", (("지스타", ("gstar.or.kr",), "지스타"),))
     @patch("tools.search._tavily_search", return_value=[{"url": "https://www.gstar.or.kr/eng/gstar/gstar_info.do"}])
     @patch("tools.conferences.fetch_official_page")
@@ -34,6 +59,7 @@ class ConferenceTests(unittest.TestCase):
         self.assertEqual(len(events), 2)
         self.assertTrue(all(e["start_date"] == "2026-11-19" for e in events))
         self.assertEqual([e["end_date"] for e in events], ["2026-11-22", "2026-11-20"])
+        self.assertEqual([e["category"] for e in events], ["exhibition", "conference"])
 
     def test_discovery_skips_archive_and_duplicate_article_variants(self):
         first = "https://m.inven.co.kr/webzine/wznews.php?idx=123&iskin=maple"
@@ -70,7 +96,7 @@ class ConferenceTests(unittest.TestCase):
     @patch("tools.conferences.fetch_official_page")
     @patch("tools.search._tavily_search")
     def test_fixed_sources_and_untrusted_results(self, search, fetch, generate):
-        fetch.return_value = (f"Official conference date {datetime.now(SEOUL).year}", [])
+        fetch.return_value = (f"Official conference date {datetime.now(SEOUL).year} " + " ".join(FESTIVAL_ALIASES), [])
         def results(query, include_domains, **kwargs):
             return [{"url": "https://" + include_domains[0] + "/event"},
                     {"url": "https://unrelated.example/event"}]
@@ -79,9 +105,10 @@ class ConferenceTests(unittest.TestCase):
                                   "start_date": (datetime.now(SEOUL).date() + timedelta(days=1)).isoformat(), "url": "https://invented.example"},
                                  {"title": "Old", "category": "conference", "start_date": "2020-01-01"},
                                  {"title": "IR", "category": "other", "start_date": "2099-01-01"}]
+        generate.return_value.extend({"title": source, "category": "exhibition", "start_date": (datetime.now(SEOUL).date() + timedelta(days=1)).isoformat()} for source in FESTIVAL_ALIASES)
         events = fetch_conferences()
         today = datetime.now(SEOUL).date()
-        self.assertEqual(search.call_count, 12 * (window_end(today).year - today.year + 1))
+        self.assertEqual(search.call_count, 2 * len(CONFERENCE_SOURCES) * (window_end(today).year - today.year + 1))
         self.assertGreaterEqual(fetch.call_count, 6)
         self.assertEqual({e["source"] for e in events}, {s[0] for s in CONFERENCE_SOURCES})
         self.assertTrue(all("invented" not in e["url"] for e in events))

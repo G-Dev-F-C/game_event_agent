@@ -2,20 +2,39 @@
 
 [![Collect game events](https://github.com/G-Dev-F-C/game_event_agent/actions/workflows/collect-events.yml/badge.svg)](https://github.com/G-Dev-F-C/game_event_agent/actions/workflows/collect-events.yml)
 
-매주 월요일 09:00 KST에 itch.io 게임잼과 지정된 공식 출처의 게임 컨퍼런스를 수집해 Google Sheets에 저장.
+매주 월요일 09:00 KST에 itch.io 게임잼과 지정된 공식 출처의 게임 전시회·컨퍼런스를 수집해 Google Sheets에 저장.
 캘린더에는 사용자가 선택한 행사만 수동 추가한다.
 
 ## 고정 수집 출처와 날짜 기준
 - 게임잼: 기존 itch.io 수집 및 미래 접수/온라인·국내 필터 유지.
 - 컨퍼런스: 넥슨(`nexon.com`), 스마일게이트(`smilegate.com`), NC소프트(`ncsoft.com`), 크래프톤(`krafton.com`), 인벤 게임 컨퍼런스 IGC(`inven.co.kr`), 지스타 본행사 및 G-CON(`gstar.or.kr`). 각 도메인의 하위 도메인 포함. 지스타 전시회와 G-CON은 별도 행사로 저장한다.
+- 추가 축제: 부산인디커넥트페스티벌, 플레이엑스포, 버닝비버/비버롹스, 인디크래프트, AGF, GXG. 공식 출처와 카테고리는 아래 표를 따른다.
 - 공식 대표 페이지를 직접 조회하고 행사 관련 링크를 한 단계 더 따라간다. Tavily는 수집 기간에 걸친 연도별·출처별 2개 쿼리를 각각 advanced 검색(쿼리당 최대 10개 결과)한다. 공식 도메인 이외의 결과와 리다이렉트는 제외한다.
 - 이미지 배너의 대체 텍스트도 읽는다. 지스타/G-CON의 명시적 날짜는 직접 파싱하고 그 외 원문은 Gemini로 구조화한다.
 - 링크 탐색은 공식 대표 페이지에서 한 단계만 수행하며, 검색된 기사에 달린 관련 기사까지 재귀 탐색하지 않는다. 인벤의 모바일/게임 스킨별 중복 기사 주소는 통합하고 과거 회차·연사 소개 페이지는 제외한다.
-- 컨퍼런스는 한국 시간 기준 `오늘 < start_date <= 오늘 + 6개월`만 포함한다. 6개월은 180일이 아닌 달력 기준이며 마지막 날도 포함한다. 오늘 시작/진행중/과거/취소/날짜 미정 행사는 제외한다. 접수 마감만 지났고 본행사가 미래인 경우는 유지한다.
-- 조건에 맞게 발견한 컨퍼런스는 건수 제한 없이 저장한다. 기존 중복은 제외하고, 게임잼 등 다른 행사의 신규 20건 제한은 유지한다. 검색에 노출되지 않거나 접근이 차단된 페이지까지 전수 수집을 보장하지는 않는다.
+- 전시회와 컨퍼런스는 한국 시간 기준 `오늘 < start_date <= 오늘 + 6개월`만 포함한다. 6개월은 180일이 아닌 달력 기준이며 마지막 날도 포함한다. 오늘 시작/진행중/과거/취소/날짜 미정 행사는 제외한다. 접수 마감만 지났고 본행사가 미래인 경우는 유지한다.
+- 조건에 맞게 발견한 전시회와 컨퍼런스는 건수 제한 없이 저장한다. 기존 중복은 제외하고, 게임잼 등 다른 행사의 신규 20건 제한은 유지한다. 검색에 노출되지 않거나 접근이 차단된 페이지까지 전수 수집을 보장하지는 않는다.
 - 기사 게시일이나 접수일을 행사 시작일로 추정하지 않는다. 타사 행사 참가 기사, IR 컨퍼런스콜, 일반 게임 이벤트는 추출 대상이 아니다.
 - `TAVILY_API_KEY`, `GEMINI_API_KEY`가 컨퍼런스 수집에 필요하다. 키 누락이나 출처 실패 시 컨퍼런스 결과가 없을 수 있으며 게임잼 수집은 계속한다.
 - 로컬 검증: `python -m unittest discover -s tests -v` (외부 API/시트 쓰기 없이 실행).
+
+### 전시회 / 컨퍼런스 분류
+
+시트의 `category`에는 `exhibition`(전시회), `conference`(컨퍼런스)를 저장한다.
+
+| 행사 | 공식 출처 | 본행사 분류 |
+| --- | --- | --- |
+| 부산인디커넥트페스티벌(BIC) | [bicfest.org](https://www.bicfest.org/overview) | 전시회 |
+| 플레이엑스포(PlayX4) | [playx4.or.kr](https://www.playx4.or.kr/) | 전시회 |
+| 버닝비버 / 비버롹스(BEAVER ROCKS) | [beaverrocks.com](https://beaverrocks.com/), 기존 burningbeaver.com, smilegate.com 공식 발표 | 전시회 |
+| 인디크래프트(INDIECRAFT) | [indiecraft.or.kr](https://indiecraft.or.kr/), 공동 행사 gxg.world | 전시회 |
+| AGF(Anime X Game Festival) | [agfkorea.com](https://www.agfkorea.com/event?idx=1) | 전시회 |
+| GXG | [gxg.world](https://gxg.world/about) | 전시회(전시·체험 중심 문화축제) |
+| 지스타 본행사 / G-CON | [gstar.or.kr](https://www.gstar.or.kr/) | 본행사 전시회 / G-CON 컨퍼런스 |
+
+별도로 이름과 일정이 공지된 강연·세미나 행사는 `conference`로 나눈다(예: 부산 인디 웨이브 컨퍼런스).
+전시회에 강연이 포함된 것만으로 본행사를 컨퍼런스로 바꾸지 않는다. 인디크래프트의 공모전 접수·심사·시상식 날짜를 전시회 날짜로 대신 쓰지 않는다.
+버닝비버의 변경된 행사명 비버롹스도 검색한다. 이미 끝난 올해 행사나 일정 미정인 다음 회차는 저장하지 않으며, 매주 새 공식 공지를 다시 확인한다.
 
 ## 구조
 ```
@@ -26,7 +45,7 @@ agent.py              # search → extract → validate → overseas_filter → 
 tools/
   gemini.py           # Gemini 3.5-flash-lite rate limiter (4초 간격, 429 지수백오프, fallback flash-lite-latest)
   search.py           # itch.io 게임잼 + 컨퍼런스 결과 병합
-  conferences.py      # 공식 출처 6곳 한정 검색/추출 + 미래 시작일 필터
+  conferences.py      # 공식 출처 12개 그룹 전시회·컨퍼런스 검색/분류 + 6개월 필터
   extractor.py        # 원문 fetch 및 구조화 결과 정규화
   validator.py        # 마감/종료 필터 + 해외 오프라인 필터 (국내 키워드/.kr/온라인 포함 시 유지)
   sheets.py           # Service Account, events 탭 자동 생성 + hash dedup + batchUpdate
@@ -68,7 +87,7 @@ CRON_SCHEDULE=0 0 * * 1,4 # 월/목
 후 `python setup_cron.py` 재실행 또는 Platform API로 update.
 
 ## 동작 규칙
-- **컨퍼런스 날짜 필터:** `today < start_date <= today + 6개월` (Asia/Seoul). 날짜 미정/진행중/종료/취소 제외, 접수 마감은 별도.
+- **전시회·컨퍼런스 날짜 필터:** `today < start_date <= today + 6개월` (Asia/Seoul). 날짜 미정/진행중/종료/취소 제외, 접수 마감은 별도.
 - **해외 필터:** `location`에 `온라인` 포함 → 유지, `오프라인: 해외(미국/일본 등)` + 국내 키워드/`.kr` 없음 → 제외, 빈 location/혼합(오프라인+온라인)은 유지
 - **중복:** `sha1(title+start_date+url)` 해시로 Sheets A열/Calendar eventId dedup
 
@@ -86,7 +105,7 @@ CRON_SCHEDULE=0 0 * * 1,4 # 월/목
 | 의존성 | `requirements-actions.txt` |
 | 예약 | 매주 월요일 09:00 KST, cron `0 0 * * 1` (UTC) |
 | 시간대 | 환경변수 `TZ=Asia/Seoul`, 날짜 판정도 한국 시간 기준 |
-| 제한 | 실행 최대 20분, 컨퍼런스 건수 제한 없음 / 기타 행사 신규 최대 20건 |
+| 제한 | 실행 최대 20분, 전시회·컨퍼런스 건수 제한 없음 / 기타 행사 신규 최대 20건 |
 | 동시 실행 | `collect-game-events` 그룹으로 직렬화, 실행 중 작업은 취소하지 않음 |
 | 저장소 권한 | `contents: read`, checkout 인증 정보 보존 안 함 |
 | 영구 저장 | Google Sheets, 기본 탭 `events` |
@@ -125,7 +144,7 @@ Secrets는 수집 단계의 환경변수로 주입된다. API 키를 Variables�
 API 키/서비스 계정 파일은 커밋하지 않는다. 기존 서비스 계정에 대상 시트 편집 권한이 필요하다.
 Linux 표준 runner에서 `requirements-actions.txt`를 설치하고 테스트 후 수집한다.
 Cloud 서버용 gRPC/protobuf 고정 의존성은 배치 환경에서 설치하지 않는다.
-동시 실행을 방지하며 최대 20분으로 제한한다. 컨퍼런스는 6개월 내 발견한 신규 행사를 모두 저장하고 기타 행사는 신규 20건으로 제한한다. 결과는 실행 Summary에서 확인한다.
+동시 실행을 방지하며 최대 20분으로 제한한다. 전시회·컨퍼런스는 6개월 내 발견한 신규 행사를 모두 저장하고 기타 행사는 신규 20건으로 제한한다. 결과는 실행 Summary에서 확인한다.
 컨퍼런스 출처별 실패/누락은 로그로 확인한다. 수집 0건이 모든 출처의 정상 조회를 보장하지 않는다.
 별도 LangGraph Cloud 배포나 `setup_cron.py` 실행은 필요 없다.
 
@@ -189,5 +208,5 @@ LANGGRAPH_API_URL=https://<deployment>.us-central1.langgraph.app python setup_cr
 
 - 공개 저장소의 표준 GitHub-hosted runner는 무료이며 현재 워크플로는 유료 larger runner를 사용하지 않는다. [Actions 요금 안내](https://docs.github.com/en/billing/concepts/product-billing/github-actions)
 - Gemini/Tavily API 비용은 호스팅 비용과 별개이다. 사용하는 모델과 계정의 무료 할당량 및 결제 설정을 확인한다. 고정된 무료 요청 수를 가정하지 않는다.
-- 컨퍼런스 검색은 실행당 12쿼리, 6개월 범위가 다음 해에 걸치면 24쿼리(advanced)이다. 수동 실행과 재실행도 API 사용량에 포함된다. 출처별 조회·실패·수집 건수는 `Conference source` 로그에서 확인한다.
+- 전시회·컨퍼런스 검색은 실행당 24쿼리, 6개월 범위가 다음 해에 걸치면 48쿼리(advanced)이다. 수동 실행과 재실행도 API 사용량에 포함된다. 출처별 조회·실패·수집 건수는 `Conference source` 로그에서 확인한다.
 - 최신 조건: [Gemini 결제 안내](https://ai.google.dev/gemini-api/docs/billing), [Tavily 요금](https://www.tavily.com/pricing).

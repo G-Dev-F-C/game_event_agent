@@ -93,7 +93,7 @@ def is_expired(event: dict, today: date | None = None) -> bool:
     if today is None:
         today = datetime.now(SEOUL).date()
 
-    if event.get("category") == "conference":
+    if event.get("category") in ("conference", "exhibition"):
         from .conferences import is_future_conference
         return not is_future_conference(event, today)
 
@@ -214,7 +214,7 @@ def _boost_score(ev: dict) -> float:
     return min(base, 1.5)
 
 def cap_events(events: list[dict], limit: int | None = None) -> tuple[list[dict], list[dict]]:
-    """컨퍼런스는 모두 유지하고 기타 행사에만 신규 limit을 적용한다."""
+    """전시회·컨퍼런스는 모두 유지하고 기타 행사에만 신규 limit을 적용한다."""
     import os
     if limit is None:
         limit = int(os.getenv("WEEKLY_CAP", "20"))
@@ -225,8 +225,8 @@ def cap_events(events: list[dict], limit: int | None = None) -> tuple[list[dict]
         date_key = d or date.max
         return (date_key, -_boost_score(ev))
     ranked = sorted(events, key=sort_key)
-    conferences = [ev for ev in ranked if ev.get("category") == "conference"]
-    others = [ev for ev in ranked if ev.get("category") != "conference"]
+    conferences = [ev for ev in ranked if ev.get("category") in ("conference", "exhibition")]
+    others = [ev for ev in ranked if ev.get("category") not in ("conference", "exhibition")]
     keep = sorted(conferences + others[:limit], key=sort_key)
     skipped = others[limit:]
     logger.info(f"Cap: {len(events)} -> keep {len(keep)} (cap {limit}), skipped {len(skipped)}")

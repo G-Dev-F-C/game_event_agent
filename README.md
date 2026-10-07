@@ -2,7 +2,7 @@
 
 [![Collect game events](https://github.com/G-Dev-F-C/game_event_agent/actions/workflows/collect-events.yml/badge.svg)](https://github.com/G-Dev-F-C/game_event_agent/actions/workflows/collect-events.yml)
 
-매주 월요일 09:00 KST에 itch.io 게임잼과 지정된 공식 출처의 게임 전시회·컨퍼런스를 수집해 Google Sheets에 저장.
+매주 월요일 09:17 KST에 itch.io 게임잼과 지정된 공식 출처의 게임 전시회·컨퍼런스를 수집해 Google Sheets에 저장.
 캘린더에는 사용자가 선택한 행사만 수동 추가한다.
 
 ## 수집 출처
@@ -31,8 +31,8 @@
 | --- | --- |
 | 실행 환경 | GitHub Actions · `Collect game events` 워크플로 |
 | 자동 실행 주기 | **주 1회, 매주 월요일** |
-| 자동 실행 시각 | **오전 09:00 한국 시간(KST)** = 월요일 00:00 UTC |
-| 예약 표현식 | `0 0 * * 1` (UTC 기준) |
+| 자동 실행 시각 | **오전 09:17 한국 시간(KST)** = 월요일 00:17 UTC |
+| 예약 표현식 | `17 0 * * 1` (UTC 기준) |
 | 수동 실행 | Actions → Collect game events → Run workflow → `main` 선택 |
 | 코드 반영 시점 | `main`에 푸시한 뒤 다음 예약 또는 수동 실행부터 적용. 푸시만으로는 수집하지 않음 |
 | 실행 방식 / 제한 | 수집 후 종료하는 배치 · 실행당 최대 60분 · 동시 실행 직렬화 |
@@ -147,7 +147,7 @@ CRON_SCHEDULE=0 0 * * 1,4 # 월/목
 | 워크플로 이름 | `Collect game events` |
 | 실행 진입점 | `python -m scripts.run_collector` |
 | 의존성 | `requirements-actions.txt` |
-| 예약 | 매주 월요일 09:00 KST, cron `0 0 * * 1` (UTC) |
+| 예약 | 매주 월요일 09:17 KST, cron `17 0 * * 1` (UTC) |
 | 시간대 | 환경변수 `TZ=Asia/Seoul`, 날짜 판정도 한국 시간 기준 |
 | 제한 | 실행 최대 60분, 전시회·컨퍼런스 건수 제한 없음 / 기타 행사 신규 최대 20건 |
 | 동시 실행 | `collect-game-events` 그룹으로 직렬화, 실행 중 작업은 취소하지 않음 |
@@ -160,7 +160,7 @@ CRON_SCHEDULE=0 0 * * 1,4 # 월/목
 **배포 검증 기록 (2026-09-17):** 커밋 [`05f7607`](https://github.com/G-Dev-F-C/game_event_agent/commit/05f7607), [첫 실행 성공](https://github.com/G-Dev-F-C/game_event_agent/actions/runs/35186086663).
 해당 실행에서 게임잼 29건, 컨퍼런스 0건을 확인했고 모두 기존 데이터라 신규 저장은 0건이었다. 최신 결과는 [Actions 실행 목록](https://github.com/G-Dev-F-C/game_event_agent/actions/workflows/collect-events.yml)에서 확인한다.
 
-`.github/workflows/collect-events.yml`이 매주 월요일 09:00 KST에 실행된다.
+`.github/workflows/collect-events.yml`이 매주 월요일 09:17 KST에 실행된다.
 GitHub Actions의 **Collect game events → Run workflow**로 수동 실행할 수 있다.
 예약 실행은 지연될 수 있으며, 공개 저장소는 60일간 활동이 없으면 예약이 비활성화될 수 있다.
 

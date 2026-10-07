@@ -2,8 +2,8 @@ name: Collect game events
 
 on:
   schedule:
-    # Monday 09:00 Asia/Seoul (UTC+9)
-    - cron: '0 0 * * 1'
+    # Monday 09:17 Asia/Seoul (UTC+9)
+    - cron: '17 0 * * 1'
   workflow_dispatch:
 
 permissions:

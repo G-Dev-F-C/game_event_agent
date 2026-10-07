@@ -13,7 +13,8 @@ logger = logging.getLogger(__name__)
 DEFAULT_MODEL = os.getenv("GEMINI_MODEL", "gemini-3.5-flash-lite")
 FALLBACK_MODEL = os.getenv("GEMINI_FALLBACK_MODEL", "gemini-flash-lite-latest")
 MIN_INTERVAL_SEC = float(os.getenv("GEMINI_MIN_INTERVAL_SEC", "4.0"))
-MAX_RETRIES = int(os.getenv("GEMINI_MAX_RETRIES", "5"))
+MAX_RETRIES = int(os.getenv("GEMINI_MAX_RETRIES", "3"))
+REQUEST_TIMEOUT_SEC = float(os.getenv("GEMINI_REQUEST_TIMEOUT_SEC", "60"))
 
 _client = None
 _last_call_ts = 0.0
@@ -80,6 +81,7 @@ def generate_json(input_text: str, model: Optional[str] = None) -> list[dict]:
                     "max_output_tokens": 4096,
                     "response_mime_type": "application/json",
                 },
+                request_options={"timeout": REQUEST_TIMEOUT_SEC, "retry": None},
             )
             text = (resp.text or "").strip()
             # JSON 배열 파싱 (코드펜스 제거)
@@ -101,7 +103,7 @@ def generate_json(input_text: str, model: Optional[str] = None) -> list[dict]:
         except Exception as e:
             msg = str(e)
             is_rate = "429" in msg or "RESOURCE_EXHAUSTED" in msg or "quota" in msg.lower()
-            is_retryable = is_rate or "503" in msg or "500" in msg
+            is_retryable = is_rate or "503" in msg or "500" in msg or "504" in msg or "deadline" in msg.lower() or "timeout" in msg.lower()
             logger.warning(f"Gemini call failed (attempt {attempt+1}/{MAX_RETRIES}, model={model_name}): {e}")
             if not is_retryable or attempt == MAX_RETRIES - 1:
                 # fallback 모델 시도
@@ -130,7 +132,8 @@ def generate_text(prompt: str, model: Optional[str] = None) -> str:
         _throttle()
         try:
             m = client.GenerativeModel(model_name)
-            resp = m.generate_content(prompt, generation_config={"temperature": 0.3})
+            resp = m.generate_content(prompt, generation_config={"temperature": 0.3},
+                                      request_options={"timeout": REQUEST_TIMEOUT_SEC, "retry": None})
             return (resp.text or "").strip()
         except Exception as e:
             msg = str(e)

@@ -96,6 +96,11 @@ def canonical_page(url):
 def is_schedule_page(url, today):
     """행사 자체가 아닌 과거 회차/연사 소개/게임 커뮤니티를 제외한다."""
     parsed = urlparse(url)
+    edition_host = re.match(r"^(20\d{2})\.", parsed.hostname or "")
+    if edition_host and int(edition_host[1]) < today.year:
+        return False
+    if re.search(r"/bbs/search\.php$|/game\.html$|/careers/|\.(?:pdf|zip)$", parsed.path, re.I):
+        return False  # 검색 목록·개별 출품작·채용·첨부 파일은 행사 안내가 아니다.
     if re.search(r"speaker|presenter|/sessions?/|/community/|last_(?:conf_)?list", parsed.path, re.I):
         return False
     if "speaker" in parsed.query.lower():

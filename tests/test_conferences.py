@@ -66,6 +66,9 @@ class ConferenceTests(unittest.TestCase):
         second = "https://www.inven.co.kr/webzine/news?news=123&site=igc"
         self.assertEqual(canonical_page(first), canonical_page(second))
         today = date(2026, 9, 17)
+        for url in ("https://2025.agfkorea.com/", "https://indiecraft.or.kr/game.html?id=1", "https://newsroom.smilegate.com/bbs/search.php?stx=game"):
+            self.assertFalse(is_schedule_page(url, today))
+        self.assertTrue(is_schedule_page("https://2026.agfkorea.com/event", today))
         self.assertFalse(is_schedule_page("https://igc.inven.co.kr/2016/", today))
         self.assertFalse(is_schedule_page("https://ndcreplay.nexon.com/NDC2019/sessions/x", today))
         self.assertFalse(is_schedule_page("https://www.gstar.or.kr/conference/conf_speaker_view.do?gsk_idx=1", today))
